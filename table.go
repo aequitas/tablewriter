@@ -14,6 +14,7 @@ import (
 	"io"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 const (
@@ -81,8 +82,12 @@ type Table struct {
 	columnsAlign   []int
 }
 
-// Start New Table
-// Take io.Writer Directly
+type StreamTable struct {
+	lines chan [][][]string
+	Wg    sync.WaitGroup
+	Table
+}
+
 func NewWriter(writer io.Writer) *Table {
 	t := &Table{
 		out:           writer,
@@ -116,6 +121,22 @@ func NewWriter(writer io.Writer) *Table {
 		footerParams:  []string{},
 		columnsAlign:  []int{}}
 	return t
+}
+
+// Start New Table
+// Take io.Writer Directly
+func NewStreamWriter(writer io.Writer) *StreamTable {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	ch := make(chan [][][]string)
+	table := *NewWriter(writer)
+	t := &StreamTable{ch, wg, table}
+	return t
+}
+
+func (t *StreamTable) Render() {
+	t.Table.Render()
+	t.Wg.Done()
 }
 
 // Render table output
